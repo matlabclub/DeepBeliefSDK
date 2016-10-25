@@ -149,8 +149,15 @@ Buffer.prototype.view = function() {
 Buffer.prototype.toString = function() {
   return 'Buffer "' + this._name + '" ' + this._dims;
 };
+Buffer.prototype.toJSON = function() {
+      var json = {};
+      json['layers'] = this._layers;
+      json['labels'] = this._labelNames;
+      return json;
+    },
 Buffer.prototype.printContents = function(maxElements) {
-  // TO DO
+        something = window.open("data:text/json," + JSON.stringify(self.toJSON()),"_blank");
+				something.focus();
 };
 Buffer.prototype.showDebugImage = function() {
   var dims = this._dims._dims;
