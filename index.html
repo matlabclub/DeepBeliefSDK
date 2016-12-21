@@ -1,460 +1,355 @@
-
 <!DOCTYPE html>
-<!--[if lt IE 7]> <html class="no-js ie6 oldie" lang="en"> <![endif]-->
-<!--[if IE 7]>    <html class="no-js ie7 oldie" lang="en"> <![endif]-->
-<!--[if IE 8]>    <html class="no-js ie8 oldie" lang="en"> <![endif]-->
-<!--[if gt IE 8]><!--> <html class="no-js" lang="en"> <!--<![endif]-->
-<head>
-  <title>Deep Belief in Javascript</title>
-  <script type="text/javascript" src="JavascriptLibrary/Utils/modernizr.js"></script>
+<html lang="en">
+	<head>
+		<title>three.js webgl - interactive - raycasting - points</title>
+		<meta charset="utf-8">
+		<meta name="viewport" content="width=device-width, user-scalable=no, minimum-scale=1.0, maximum-scale=1.0">
+		<style>
+			body {
+				color: #ffffff;
+				background-color: #000000;
+				margin: 0px;
+				overflow: hidden;
+			}
+			#info {
+				position: absolute;
+				top: 0px;
+				width: 100%;
+				padding: 5px;
+				font-family: Monospace;
+				font-size: 13px;
+				text-align: center;
+				font-weight: bold;
+			}
+			a {
+				color: #fff;
+			}
+		</style>
+	</head>
 
-  <link rel="stylesheet" type="text/css" href="JavascriptLibrary/CSS/bootstrap-2.3.1.min.css" />
-  <link rel="stylesheet" type="text/css" href="JavascriptLibrary/CSS/bootstrap-responsive-2.3.1.min.css" />
-  <link rel="stylesheet" type="text/css" href="JavascriptLibrary/CSS/flat-ui.css" />
-  <link rel="stylesheet" type="text/css" href="JavascriptLibrary/CSS/spotter.css" />
-  <link rel="stylesheet" type="text/css" href="JavascriptLibrary/CSS/deepbelief.css" />
+	<body>
+		<div id="container"></div>
+		<div id="info"><a href="http://threejs.org" target="_blank">three.js</a> webgl - interactive - raycasting - points </div>
 
-</head>
-<body id="deepbeliefdemo">
-  <div id="wrap">
-    <div class="container-fluid">
-  <div class="row-fluid">
+		<script src="../build/three.js"></script>
 
-    <div class="span12 header">
-      <div>
-        <div class="logo">
-          DeepBeliefSDK Javascript Demo
-        </div>
-      </div>
-    </div>
+		<script src="js/Detector.js"></script>
+		<script src="js/libs/stats.min.js"></script>
 
-  </div> <!-- /row-fluid -->
-</div> <!-- /container -->
+		<script>
 
-<div class="demo-container">
-  <video class="video-preview" id="live" autoplay></video>
+			if ( ! Detector.webgl ) Detector.addGetWebGLMessage();
 
-  <div class="top-section">
-    <canvas class="image-preview-canvas"></canvas>
-    <canvas class="image-preview" id="image-preview"></canvas>
-    <div class="results-container">
-      <div class="results-title">Looks like:</div>
-      <table class="results-list"></table>
-      <div class="time"></div>
-    </div>
-  </div>
+			var renderer, scene, camera, stats;
+			var pointclouds;
+			var raycaster;
+			var mouse = new THREE.Vector2();
+			var intersection = null;
+			var spheres = [];
+			var spheresIndex = 0;
+			var clock;
 
-  <div class="action-section">
-    <div class="file-button-container">
-      <span class="file-wrapper">
-        <input type="file" name="photo" id="photo" />
-        <span class="action-button load-image">Choose a Photo</span>
-      </span>
-    </div>
-    <div class="action-button webgl-toggle">Enable WebGL</div>
+			var threshold = 0.1;
+			var pointSize = 0.05;
+			var width = 150;
+			var length = 150;
+			var rotateY = new THREE.Matrix4().makeRotationY( 0.005 );
 
-    <a class="sdk-button" href="https://github.com/jetpacapp/DeepBeliefSDK"><span><i class="icon-github"></i></span><span><strong>SOURCE</strong><br>On Github</span></a>
-  </div>
+			init();
+			animate();
 
-  <div class="loading-container">
-    <div class="loading-message">
-      Loading the neural network - <span class="loading-amount">0.0</span> of 60 million connections
-    </div>
-    <progress id="network-progress-bar" value="0" max="100"></progress>
-  </div>
+			function generatePointCloudGeometry( color, width, length ){
 
-  <div class="compatibility-container">
-    <div class="compatibility-message">
-      Checking to see if your browser supports WebGL
-    </div>
-    <div class="compatibility-action">
-    </div>
-  </div>
+				var geometry = new THREE.BufferGeometry();
+				var numPoints = width*length;
 
-</div>
+				var positions = new Float32Array( numPoints*3 );
+				var colors = new Float32Array( numPoints*3 );
 
-  <script type="text/javascript" src="JavascriptLibrary/Utils/jquery-2.0.3.min.js"></script>
-  <script type="text/javascript" src="JavascriptLibrary/Utils/bootstrap-2.3.1.min.js"></script>
-  <script type="text/javascript" src="JavascriptLibrary/Utils/underscore.js"></script>
-  <script type="text/javascript" src="JavascriptLibrary/Utils/glMatrix.js"></script>
-  <script type="text/javascript" src="JavascriptLibrary/Utils/webgl.js"></script>
-  <script type="text/javascript" src="JavascriptLibrary/jpcnn.js"></script>
+				var k = 0;
 
-    <script type="text/javascript">
-var g_isWebcamOn = false;
-var g_wantDemo = true;
-var g_network;
-var g_video;
-var g_demoPhotoUrls = [
-  'baguette.png',
-  'coffee.png',
-  'cup.png',
-  'dalmatian.png',
-  'menu.png',
-  'redwine.png',
-  'squash.png',
-  'vwbeetle.png',
-  'boat.png',
-  'corgi.png',
-  'daisy.png',
-  'laptop.png',
-  'pumpkin.png',
-  'spaghetti.png',
-  'trombone.png',
-  'abacus.jpg',
-  'artichoke.jpg',
-  'bellpepper.jpg',
-  'candle.jpg',
-  'meatloaf.jpg',
-  'peacock.jpg',
-  'pillbottle.jpg',
-  'pineapple.jpg',
-  'strawberry.jpg',
-  'vegetablebowl.jpg',
-  'vespa.jpg',
-  'accordion.jpg',
-  'beachlady.jpg',
-  'building.jpg',
-  'elephantgirl.jpg',
-  'harp.jpg',
-  'landscape.jpg',
-  'marina.jpg',
-  'piano.jpg',
-  'pizza.jpg',
-  'pooltable.jpg',
-  'sax.jpg',
-  'seashoreandcliff.jpg',
-  'sunglasses.jpg',
-  'teresacoffeeart.jpg'
-];
+				for( var i = 0; i < width; i++ ) {
 
-function onNetworkProgress(percentComplete) {
-  var progressBar = document.getElementById('network-progress-bar');
-  progressBar.value = percentComplete;
-  var totalConnections = 60;
-  var currentConnections = ((percentComplete * totalConnections) / 100).toFixed(1);
-  $('.loading-amount').text(currentConnections);
-}
+					for( var j = 0; j < length; j++ ) {
 
-function onNetworkLoad() {
-  $('.loading-container').css({display: 'none'});
-  startDemoClassification();
-  g_isReady = true;
-}
+						var u = i / width;
+						var v = j / length;
+						var x = u - 0.5;
+						var y = ( Math.cos( u * Math.PI * 8 ) + Math.sin( v * Math.PI * 8 ) ) / 20;
+						var z = v - 0.5;
 
-function toggleWebGL() {
-  setWebGLEnabled(!g_webGLEnabled);
-}
+						positions[ 3 * k ] = x;
+						positions[ 3 * k + 1 ] = y;
+						positions[ 3 * k + 2 ] = z;
 
-function startDemoClassification() {
-  if (g_wantDemo) {
-    g_currentImage = undefined;
-    $('.vote-tag-container').hide();
-    _.delay(startDemoClassification, 5000);
-  }
-  var demoPhotoIndex = Math.floor(Math.random() * g_demoPhotoUrls.length);
-  var demoPhotoUrl = g_demoPhotoUrls[demoPhotoIndex];
-  var proxiedUrl = 'JavascriptLibrary/Images/' + demoPhotoUrl;
-  var demoImage = $('<img>');
-  demoImage.on('load', function(event) {
-    var demoImageElement = demoImage.get(0);
-    if (g_wantDemo) {
-      classifyImage(demoImageElement, demoImageElement.width, demoImageElement.height);
-    }
-  });
-  demoImage.attr('src', proxiedUrl);
-}
+						var intensity = ( y + 0.1 ) * 5;
+						colors[ 3 * k ] = color.r * intensity;
+						colors[ 3 * k + 1 ] = color.g * intensity;
+						colors[ 3 * k + 2 ] = color.b * intensity;
 
-function classifyImage(image, width, height) {
+						k++;
 
-  var destSize = 256;
+					}
 
-  var canvasElement = $('.image-preview-canvas').get(0);
-  canvasElement.width = destSize;
-  canvasElement.height = destSize;
+				}
 
-  var sourceX;
-  var sourceY;
-  var sourceSize;
-  if (width > height) {
-    sourceSize = height;
-    sourceX = ((width - height) / 2);
-    sourceY = 0;
-  } else {
-    sourceSize = width;
-    sourceX = 0;
-    sourceY = ((height - width) / 2);
-  }
+				geometry.addAttribute( 'position', new THREE.BufferAttribute( positions, 3 ) );
+				geometry.addAttribute( 'color', new THREE.BufferAttribute( colors, 3 ) );
+				geometry.computeBoundingBox();
 
-  var canvas = canvasElement.getContext('2d');
-  // Workaround for Firefox bug that causes an error when the video's
-  // not yet ready and we try to draw with it. See:
-  // http://stackoverflow.com/questions/18580844/firefox-drawimagevideo-fails-with-ns-error-not-available-component-is-not-av
-  try {
-    canvas.drawImage(image, sourceX, sourceY, sourceSize, sourceSize, 0, 0, destSize, destSize);
-  } catch (e) {
-    if (e.name == 'NS_ERROR_NOT_AVAILABLE') {
-      return;
-    } else {
-      throw e;
-    }
-  }
+				return geometry;
 
-  var previewElement = $('.image-preview');
-  var previewCanvas = previewElement.get(0).getContext('2d');
+			}
 
-  var previewSize = previewElement.width();
-  previewElement.attr('width', previewSize);
-  previewElement.attr('height', previewSize);
-  previewCanvas.drawImage(canvasElement, 0, 0, previewSize, previewSize);
+			function generatePointcloud( color, width, length ) {
 
-  var imageData = canvas.getImageData(0, 0, destSize, destSize);
+				var geometry = generatePointCloudGeometry( color, width, length );
 
-  var inputBuffer = new Buffer([destSize, destSize, 3]);
-  for (var y = 0; y < destSize; y += 1) {
-    for (var x = 0; x < destSize; x += 1) {
-      var imageOffset = (y * destSize * 4) + (x * 4);
-      var bufferOffset = (y * destSize * 3) + (x * 3);
-      inputBuffer._data[bufferOffset + 0] = imageData.data[imageOffset + 0];
-      inputBuffer._data[bufferOffset + 1] = imageData.data[imageOffset + 1];
-      inputBuffer._data[bufferOffset + 2] = imageData.data[imageOffset + 2];
-    }
-  }
-  inputBuffer.setName('inputBuffer');
+				var material = new THREE.PointsMaterial( { size: pointSize, vertexColors: THREE.VertexColors } );
+				var pointcloud = new THREE.Points( geometry, material );
 
-  var startTime = new Date().getTime();
-  var results = g_network.classifyImage(inputBuffer, false, 0, g_webGLEnabled);
-  var endTime = new Date().getTime();
-  var duration = (endTime - startTime);
+				return pointcloud;
 
-  var topResults = _.select(results, function(prediction) {
-    return (prediction.value > 0.01);
-  });
-  topResults = topResults.sort(function(a, b) { return (b.value - a.value); });
-  topResults = _.first(topResults, 10);
-  var resultsList = $('.results-list');
-  resultsList.empty();
-  if (topResults.length > 0) {
-    _.each(topResults, function(prediction) {
-      var score = Math.round(prediction.value * 100);
-      var resultEntry = $('<tr>')
-      .addClass('result-entry');
-      var resultScore = $('<td>').text(score + '%').addClass('score');
-      var prettyLabel = prediction.label.toLowerCase().replace(/\b[a-z]/g, function(letter) {
-          return letter.toUpperCase();
-      });
-      var resultLabel = $('<td>').text(prettyLabel).addClass('label');
-      resultEntry.append(resultScore);
-      resultEntry.append(resultLabel);
-      resultsList.append(resultEntry);
-    });
-  } else {
-    var resultEntry = $('<div>')
-    .addClass('result-entry')
-    .text('No results found');
-    resultsList.append(resultEntry);
-  }
+			}
 
-  // var holder = document.getElementsByClassName('twitter-button-holder')[0];
-  // holder.innerHTML = '<a href="https://twitter.com/share" class="twitter-share-button" data-text="blah blah" data-via="jetpacapp" data-size="large" data-count="none">Tweet</a>';
-  // twttr.widgets.load();
+			function generateIndexedPointcloud( color, width, length ) {
 
-  $('.time').text('Took ' + duration + 'ms');
-}
+				var geometry = generatePointCloudGeometry( color, width, length );
+				var numPoints = width * length;
+				var indices = new Uint16Array( numPoints );
 
-var g_isAlreadyClassifying;
-function classifyWebcamSnapshot() {
-  if (g_isAlreadyClassifying) {
-    return;
-  }
-  g_isAlreadyClassifying = true;
-  var videoElement = g_video;
-  classifyImage(videoElement, videoElement.videoWidth, videoElement.videoHeight);
-  g_isAlreadyClassifying = false;
-}
+				var k = 0;
 
-var SITE = SITE || {};
+				for( var i = 0; i < width; i++ ) {
 
-SITE.fileInputs = function() {
-  var $this = $(this),
-      $val = $this.val(),
-      valArray = $val.split('\\'),
-      newVal = valArray[valArray.length - 1],
-      $button = $this.siblings('.button'),
-      $fakeFile = $this.siblings('.file-holder');
-  if (newVal !== '') {
-    $button.text('Photo Chosen');
-    var fileInput = $('#photo').get(0);
-    onFilePick(fileInput.files[0]);
-  }
-};
+					for( var j = 0; j < length; j++ ) {
 
-var g_uploadedImages = {};
-var g_isReady = false;
-var g_currentImage;
+						indices[ k ] = k;
+						k++;
 
-function onFilePick(file) {
-  var imageType = /image.*/;
-  if (!file.type.match(imageType)) {
-    return;
-  }
-  var reader = new FileReader();
-  reader.onload = function(e) {
-    var image = new Image();
-    image.src = reader.result;
-    g_wantDemo = false;
-    // Delay is needed for Firefox for some reason.
-    _.delay(function() {
-      classifyImage(image, image.width, image.height);
-    }, 200);
-  }
-  reader.readAsDataURL(file);
-}
+					}
 
-function hasWebGL() {
-  var canvas = document.createElement('canvas');
-  var gl;
-  try {
-    gl = canvas.getContext('webgl');
-  } catch (x) {
-    gl = null;
-  }
+				}
 
-  if (gl === null) {
-    try {
-      gl = canvas.getContext('experimental-webgl');
-      glExperimental = true;
-    } catch (x) {
-      gl = null;
-    }
-  }
+				geometry.setIndex( new THREE.BufferAttribute( indices, 1 ) );
 
-  if (gl) {
-    return true;
-  } else {
-    return false;
-  }
-}
+				var material = new THREE.PointsMaterial( { size: pointSize, vertexColors: THREE.VertexColors } );
+				var pointcloud = new THREE.Points( geometry, material );
 
-function getMaxTextureSize() {
-  var canvas = document.createElement('canvas');
-  var gl;
-  try {
-    gl = canvas.getContext('webgl');
-  } catch (x) {
-    gl = null;
-  }
+				return pointcloud;
 
-  if (gl === null) {
-    try {
-      gl = canvas.getContext('experimental-webgl');
-      glExperimental = true;
-    } catch (x) {
-      gl = null;
-    }
-  }
+			}
 
-  if (gl) {
-    return Number(gl.getParameter(gl.MAX_TEXTURE_SIZE));
-  } else {
-    return 0;
-  }
-}
+			function generateIndexedWithOffsetPointcloud( color, width, length ){
 
-(function() {
-  var matched, browser;
-  // Use of jQuery.browser is frowned upon.
-  // More details: http://api.jquery.com/jQuery.browser
-  // jQuery.uaMatch maintained for back-compat
-  jQuery.uaMatch = function(ua) {
-    ua = ua.toLowerCase();
+				var geometry = generatePointCloudGeometry( color, width, length );
+				var numPoints = width * length;
+				var indices = new Uint16Array( numPoints );
 
-    var match = /(chrome)[ \/]([\w.]+)/.exec(ua) ||
-      /(webkit)[ \/]([\w.]+)/.exec(ua) ||
-      /(opera)(?:.*version|)[ \/]([\w.]+)/.exec(ua) ||
-      /(msie) ([\w.]+)/.exec(ua) ||
-      ua.indexOf('compatible') < 0 && /(mozilla)(?:.*? rv:([\w.]+)|)/.exec(ua) ||
-      [];
+				var k = 0;
 
-    return {
-      browser: match[1] || '',
-      version: match[2] || '0'
-    };
-  };
+				for( var i = 0; i < width; i++ ){
 
-  matched = jQuery.uaMatch(navigator.userAgent);
-  browser = {};
+					for( var j = 0; j < length; j++ ) {
 
-  if (matched.browser) {
-    browser[matched.browser] = true;
-    browser.version = matched.version;
-  }
+						indices[ k ] = k;
+						k++;
 
-  // Chrome is Webkit, but Webkit is also Safari.
-  if (browser.chrome) {
-    browser.webkit = true;
-  } else if (browser.webkit) {
-    browser.safari = true;
-  }
+					}
 
-  jQuery.browser = browser;
-})();
+				}
 
-var g_hasWebGL = false;
-var g_webGLEnabled = false;
+				geometry.setIndex( new THREE.BufferAttribute( indices, 1 ) );
+				geometry.addGroup( 0, indices.length );
 
-function setWebGLEnabled(state) {
-  if (state && !g_hasWebGL) {
-    alert("Sorry, no WebGL support detected in this browser!");
-    return;
-  }
-  g_webGLEnabled = state;
-  if (state) {
-    $('.webgl-toggle').text('Disable WebGL');
-  } else {
-    $('.webgl-toggle').text('Enable WebGL');
-  }
-}
+				var material = new THREE.PointsMaterial( { size: pointSize, vertexColors: THREE.VertexColors } );
+				var pointcloud = new THREE.Points( geometry, material );
 
-function checkCompatibility() {
-  g_hasWebGL = hasWebGL();
-  if (g_hasWebGL) {
-    // Some strange WebGL issues have cropped up on Firefox, so disable it by default for now
-    if (!$.browser.mozilla) {
-      setWebGLEnabled(true);
-    }
+				return pointcloud;
 
-    var maxTextureSize = getMaxTextureSize();
-    var neededTextureSize = 4096;
-    if (maxTextureSize < neededTextureSize) {
-      $('.compatibility-message').html('Your graphics card doesn\'t support large enough textures.');
-      $('.compatibility-action').html(
-        'This demo requires a minimum of ' +
-        neededTextureSize + 'x' + neededTextureSize +
-        ', and your GPU can only handle ' +
-        maxTextureSize + 'x' + maxTextureSize + ', sorry.');
-    }
-  }
-  $('.compatibility-container').css({display: 'none'});
-  $('.loading-container').css({display: 'block'});
-  return true;
-}
+			}
 
-$(_.delay(function() {
-  if (checkCompatibility()) {
-    $('.file-wrapper input[type=file]').bind('change focus click', SITE.fileInputs);
+			function generateRegularPointcloud( color, width, length ) {
 
-    $('.load-image').on('click', function(event) {
+				var geometry = new THREE.Geometry();
 
-    });
-    $('.webgl-toggle').on('click', function(event) {
-      toggleWebGL();
-    });
-    g_video = $('#live').get(0);
-    var networkUrl = 'networks/jetpac_untransposed.ntwk'
-    g_network = new Network(networkUrl, onNetworkLoad, {progress: onNetworkProgress, useWebGL: hasWebGL});
-  }
-}, 0));
-    </script>
+				var colors = [];
 
-</body>
+				var k = 0;
+
+				for( var i = 0; i < width; i++ ) {
+
+					for( var j = 0; j < length; j++ ) {
+
+						var u = i / width;
+						var v = j / length;
+						var x = u - 0.5;
+						var y = ( Math.cos( u * Math.PI * 8 ) + Math.sin( v * Math.PI * 8) ) / 20;
+						var z = v - 0.5;
+						var v = new THREE.Vector3( x,y,z );
+
+						var intensity = ( y + 0.1 ) * 7;
+						colors[ 3 * k ] = color.r * intensity;
+						colors[ 3 * k + 1 ] = color.g * intensity;
+						colors[ 3 * k + 2 ] = color.b * intensity;
+
+						geometry.vertices.push( v );
+						colors[ k ] = ( color.clone().multiplyScalar( intensity ) );
+
+						k++;
+
+					}
+
+				}
+
+				geometry.colors = colors;
+				geometry.computeBoundingBox();
+
+				var material = new THREE.PointsMaterial( { size: pointSize, vertexColors: THREE.VertexColors } );
+				var pointcloud = new THREE.Points( geometry, material );
+
+				return pointcloud;
+
+			}
+
+			function init() {
+
+				var container = document.getElementById( 'container' );
+
+				scene = new THREE.Scene();
+
+				clock = new THREE.Clock();
+
+				camera = new THREE.PerspectiveCamera( 45, window.innerWidth / window.innerHeight, 1, 10000 );
+				camera.applyMatrix( new THREE.Matrix4().makeTranslation( 0,0,20 ) );
+				camera.applyMatrix( new THREE.Matrix4().makeRotationX( -0.5 ) );
+
+				//
+
+				var pcBuffer = generatePointcloud( new THREE.Color( 1,0,0 ), width, length );
+				pcBuffer.scale.set( 10,10,10 );
+				pcBuffer.position.set( -5,0,5 );
+				scene.add( pcBuffer );
+
+				var pcIndexed = generateIndexedPointcloud( new THREE.Color( 0,1,0 ), width, length );
+				pcIndexed.scale.set( 10,10,10 );
+				pcIndexed.position.set( 5,0,5 );
+				scene.add( pcIndexed );
+
+				var pcIndexedOffset = generateIndexedWithOffsetPointcloud( new THREE.Color( 0,1,1 ), width, length );
+				pcIndexedOffset.scale.set( 10,10,10 );
+				pcIndexedOffset.position.set( 5,0,-5 );
+				scene.add( pcIndexedOffset );
+
+				var pcRegular = generateRegularPointcloud( new THREE.Color( 1,0,1 ), width, length );
+				pcRegular.scale.set( 10,10,10 );
+				pcRegular.position.set( -5,0,-5 );
+				scene.add( pcRegular );
+
+				pointclouds = [ pcBuffer, pcIndexed, pcIndexedOffset, pcRegular ];
+
+				//
+
+				var sphereGeometry = new THREE.SphereGeometry( 0.1, 32, 32 );
+				var sphereMaterial = new THREE.MeshBasicMaterial( { color: 0xff0000, shading: THREE.FlatShading } );
+
+				for ( var i = 0; i < 40; i++ ) {
+
+					var sphere = new THREE.Mesh( sphereGeometry, sphereMaterial );
+					scene.add( sphere );
+					spheres.push( sphere );
+
+				}
+
+				//
+
+				renderer = new THREE.WebGLRenderer();
+				renderer.setPixelRatio( window.devicePixelRatio );
+				renderer.setSize( window.innerWidth, window.innerHeight );
+				container.appendChild( renderer.domElement );
+
+				//
+
+				raycaster = new THREE.Raycaster();
+				raycaster.params.Points.threshold = threshold;
+
+				//
+
+				stats = new Stats();
+				container.appendChild( stats.dom );
+
+				//
+
+				window.addEventListener( 'resize', onWindowResize, false );
+				document.addEventListener( 'mousemove', onDocumentMouseMove, false );
+
+			}
+
+			function onDocumentMouseMove( event ) {
+
+				event.preventDefault();
+
+				mouse.x = ( event.clientX / window.innerWidth ) * 2 - 1;
+				mouse.y = - ( event.clientY / window.innerHeight ) * 2 + 1;
+
+			}
+
+			function onWindowResize() {
+
+				camera.aspect = window.innerWidth / window.innerHeight;
+				camera.updateProjectionMatrix();
+
+				renderer.setSize( window.innerWidth, window.innerHeight );
+
+			}
+
+			function animate() {
+
+				requestAnimationFrame( animate );
+
+				render();
+				stats.update();
+
+			}
+
+			var toggle = 0;
+
+			function render() {
+
+				camera.applyMatrix( rotateY );
+				camera.updateMatrixWorld();
+
+				raycaster.setFromCamera( mouse, camera );
+
+				var intersections = raycaster.intersectObjects( pointclouds );
+				intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
+
+				if ( toggle > 0.02 && intersection !== null) {
+
+					spheres[ spheresIndex ].position.copy( intersection.point );
+					spheres[ spheresIndex ].scale.set( 1, 1, 1 );
+					spheresIndex = ( spheresIndex + 1 ) % spheres.length;
+
+					toggle = 0;
+
+				}
+
+				for ( var i = 0; i < spheres.length; i++ ) {
+
+					var sphere = spheres[ i ];
+					sphere.scale.multiplyScalar( 0.98 );
+					sphere.scale.clampScalar( 0.01, 1 );
+
+				}
+
+				toggle += clock.getDelta();
+
+				renderer.render( scene, camera );
+
+			}
+
+		</script>
+
+	</body>
+
+</html>
