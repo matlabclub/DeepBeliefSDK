@@ -319,7 +319,7 @@
 				//camera.applyMatrix( rotateY );
 				camera.updateMatrixWorld();
 
-				raycaster.setFromCamera( mouse, camera );
+				//raycaster.setFromCamera( mouse, camera );
 
 				var intersections = raycaster.intersectObjects( pointclouds );
 				intersection = ( intersections.length ) > 0 ? intersections[ 0 ] : null;
