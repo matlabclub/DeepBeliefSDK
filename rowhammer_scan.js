@@ -1,20 +1,3 @@
-Skip to content
-This repository
-Search
-Pull requests
-Issues
-Gist
- @cantren
- Unwatch 46
-  Star 295
- Fork 50 IAIK/rowhammerjs
- Code  Issues 0  Pull requests 0  Projects 0  Wiki  Pulse  Graphs
-Branch: master Find file Copy pathrowhammerjs/javascript/rowhammer_scan.js
-7b9db26  on Jul 30, 2015
- Daniel Gruss javascript-only variant...
-0 contributors
-RawBlameHistory    
-272 lines (263 sloc)  7 KB
 // Copyright 2015, Daniel Gruss, Clémentine Maurice
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -285,6 +268,3 @@ function hammer_second_row()
 }
 document.getElementById("histogram").innerHTML = "";
 document.getElementById("text").innerHTML = "";
-
-Contact GitHub API Training Shop Blog About
-© 2017 GitHub, Inc. Terms Privacy Security Status Help
